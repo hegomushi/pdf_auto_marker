@@ -16,5 +16,8 @@ dev = ["pytest", "reportlab"]
 [project.scripts]
 pdf-auto-marker = "pdf_auto_marker.cli:main"
 
+[project.gui-scripts]
+pdf-auto-marker-gui = "pdf_auto_marker.gui:main"
+
 [tool.setuptools]
 packages = ["pdf_auto_marker"]

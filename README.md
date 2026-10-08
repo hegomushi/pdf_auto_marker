@@ -29,7 +29,34 @@ pip install -r requirements.txt
 pip install .
 ```
 
-## 使い方
+## 使い方 (GUI)
+
+![GUI](docs/gui.png)
+
+### 起動
+
+| OS | 起動方法 |
+|----|---------|
+| Windows | `start_gui.bat` をダブルクリック |
+| macOS | `start_gui.command` をダブルクリック(初回は右クリック →「開く」) |
+| 共通 | `python -m pdf_auto_marker.gui`(`pip install .` 済みなら `pdf-auto-marker-gui`) |
+
+> GUI は Python 標準の tkinter を使います。Windows / macOS の公式 Python には同梱されています。
+> Linux で `No module named 'tkinter'` と出る場合は `sudo apt install python3-tk` などで追加してください。
+
+### 操作の流れ
+
+1. **① 入力 PDF と出力先** — 「PDF を追加」または「フォルダを追加」で対象を選びます。出力フォルダが空欄なら入力と同じ場所に `<元の名前>_marked.pdf` で保存します。
+2. **② マーキングのルール** — 「単語マーキング」「行マーキング」の各タブで「追加…」を押してルールを作成します(ダブルクリックで編集、▲▼で順番変更)。
+   - 色は「色を選ぶ…」のカラーピッカー、または `#FF0000` のような 16 進で指定
+   - 行マーキングの幅は「行全体」「列の範囲(例: `2-4`)」「横位置 (pt)」から選択
+   - 列番号や横位置は「**表の構造を確認**」ボタンで確認できます
+3. **③ オプション** — 必要に応じて表の検出方法・対象ページを指定します。
+4. **▶ マーキング実行** — 結果はログに表示され、完了後に出力フォルダが開きます。
+
+作ったルールは「ルールを保存…」で YAML ファイルに保存でき、次回は「ルールを読み込む…」で再利用できます(コマンドラインと共通の形式です)。
+
+## 使い方 (コマンドライン)
 
 ### 1. 表の構造を確認する
 
@@ -134,6 +161,8 @@ pip install -e ".[dev]"
 python tools/make_sample_pdf.py examples/sample.pdf   # サンプル PDF を再生成
 python -m pytest
 ```
+
+GUI のコードは `pdf_auto_marker/gui.py`、マーキング処理は `pdf_auto_marker/marker.py` にあります(GUI とコマンドラインは同じ処理を呼び出します)。
 
 ## ライセンスについて
 
