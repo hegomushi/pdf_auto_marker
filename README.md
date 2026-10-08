@@ -19,7 +19,29 @@ PDF 内の **表** を自動で検出し、ルールに従ってマーキング(
 - 同じ PDF に再実行すると、以前このツールで付けたマーキングを置き換えます(重複しません)
 - 回転したページ、複数ページ、フォルダ単位の一括処理に対応
 
-## 動作環境・インストール
+## Windows 版 (インストール不要・単一フォルダ)
+
+Python をインストールしていない PC でも使える、exe 入りのフォルダ版を用意しています。
+
+```
+PdfAutoMarker/
+├─ PdfAutoMarker.exe      … GUI (ダブルクリックで起動)
+├─ pdf-auto-marker.exe    … コマンドライン版
+├─ rules.yaml             … 起動時に自動で読み込まれるルール
+├─ README.txt             … 使い方
+├─ sample/sample.pdf      … お試し用 PDF
+└─ _internal/             … 実行に必要なファイル (削除しないでください)
+```
+
+### 入手方法
+
+- **GitHub Actions から:** リポジトリの「Actions」→「Build Windows package」→ 最新の実行 → 「Artifacts」の `PdfAutoMarker-win64` をダウンロードして展開します。
+- **リリースから:** `v0.1.0` のようなタグを push すると、`PdfAutoMarker-win64.zip` が Releases に自動で添付されます。
+- **自分の Windows PC でビルド:** Python 3.10 以上 (python.org 版) を入れた状態で `build_windows.bat` をダブルクリックすると、`dist\PdfAutoMarker\` と `dist\PdfAutoMarker-win64.zip` ができます。
+
+> 署名のない exe のため、初回起動時に「Windows によって PC が保護されました」と表示されることがあります。「詳細情報」→「実行」で起動できます。
+
+## 動作環境・インストール (Python で実行する場合)
 
 - Python 3.9 以上(Windows / macOS / Linux)
 

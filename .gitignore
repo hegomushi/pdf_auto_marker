@@ -8,3 +8,4 @@ dist/
 .pytest_cache/
 output/
 *_marked.pdf
+.venv-build/

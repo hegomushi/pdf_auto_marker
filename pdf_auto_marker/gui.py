@@ -794,6 +794,15 @@ def main(argv: Optional[list[str]] = None) -> int:
             pass
     root = tk.Tk()
     app = App(root)
+    # 配布版 (exe) では、exe と同じフォルダの rules.yaml を起動時に読み込む
+    if getattr(sys, "frozen", False) and not any(
+            Path(a).suffix.lower() in (".yaml", ".yml", ".json") for a in args):
+        default_rules = Path(sys.executable).resolve().parent / "rules.yaml"
+        if default_rules.is_file():
+            try:
+                app.load_rules_from(default_rules)
+            except Exception as e:
+                app.log(f"rules.yaml を読み込めませんでした: {e}")
     # 引数: PDF ファイル / フォルダ / ルール設定ファイル (YAML/JSON) を渡せる
     for a in args:
         p = Path(a)

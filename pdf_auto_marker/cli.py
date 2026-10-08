@@ -52,6 +52,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # 日本語を表示できないコンソール (出力のリダイレクト時など) でも異常終了しないようにする
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except (AttributeError, ValueError):
+            pass
     args = build_parser().parse_args(argv)
     try:
         inputs = _collect_inputs(args.inputs)
