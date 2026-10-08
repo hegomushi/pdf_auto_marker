@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdf-auto-marker"
+version = "0.1.0"
+description = "PDF内の表を解析し、指定した単語や行を自動でマーキングするローカルツール"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["pymupdf>=1.24.0", "pyyaml>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest", "reportlab"]
+
+[project.scripts]
+pdf-auto-marker = "pdf_auto_marker.cli:main"
+
+[tool.setuptools]
+packages = ["pdf_auto_marker"]
