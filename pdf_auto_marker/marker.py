@@ -203,6 +203,7 @@ class MarkResult:
     hits: list[Hit] = field(default_factory=list)
     tables_found: int = 0
     pages_processed: int = 0
+    already_flattened: bool = False  # 入力が既にこのツールで焼き込み済みだった
 
     def count_by_rule(self) -> dict[str, int]:
         counts: dict[str, int] = {}
@@ -356,16 +357,80 @@ def mark_document(doc: pymupdf.Document, config: Config, pages: Optional[str] = 
     return result
 
 
+# 焼き込み済みの PDF であることを示すカタログのキー (再実行時の重ね塗り警告用)
+_FLATTENED_KEY = "PdfAutoMarkerFlattened"
+
+
+def _annots_refs(doc: pymupdf.Document, page: pymupdf.Page) -> list[int]:
+    """ページの /Annots 配列に含まれる注釈の xref を返す。"""
+    kind, value = doc.xref_get_key(page.xref, "Annots")
+    if kind == "xref":  # 間接参照の配列
+        value = doc.xref_object(int(value.split()[0]), compressed=True)
+    elif kind != "array":
+        return []
+    return [int(x) for x in re.findall(r"(\d+)\s+0\s+R", value)]
+
+
+def _set_annots(doc: pymupdf.Document, page: pymupdf.Page, xrefs: list[int]) -> None:
+    if xrefs:
+        doc.xref_set_key(page.xref, "Annots", "[" + " ".join(f"{x} 0 R" for x in xrefs) + "]")
+    else:
+        doc.xref_set_key(page.xref, "Annots", "null")
+
+
+def flatten_marks(doc: pymupdf.Document) -> None:
+    """このツールが付けた注釈だけをページ本文に焼き込む。
+
+    焼き込んだマーキングは通常の図形になるため、クリックやマウスオーバーで
+    ポップアップ (コメント) が表示されなくなる。元々 PDF にあった注釈やフォームはそのまま残す。
+    """
+    others: dict[int, list[int]] = {}
+    for page in doc:
+        refs = _annots_refs(doc, page)
+        if not refs:
+            continue
+        ours = {a.xref for a in page.annots() if a.info.get("title") == ANNOT_TITLE}
+        if not ours:
+            continue
+        # 一時的に自分の注釈だけを残して焼き込み、その後ほかの注釈を戻す
+        others[page.number] = [x for x in refs if x not in ours]
+        _set_annots(doc, page, [x for x in refs if x in ours])
+    if not others:
+        return
+    for page in doc:
+        if page.number not in others:
+            # 対象外のページの注釈は焼き込まないよう一時的に外す
+            refs = _annots_refs(doc, page)
+            if refs:
+                others[page.number] = refs
+                _set_annots(doc, page, [])
+    doc.bake(annots=True, widgets=False)
+    for pno, refs in others.items():
+        page = doc[pno]
+        _set_annots(doc, page, _annots_refs(doc, page) + refs)
+    doc.xref_set_key(doc.pdf_catalog(), _FLATTENED_KEY, "true")
+
+
 def mark_pdf(input_path: Union[str, Path], output_path: Union[str, Path], config: Config,
-             pages: Optional[str] = None, clear_previous: bool = True) -> MarkResult:
-    """PDF ファイルを読み込み、マーキングして別ファイルに保存する。"""
+             pages: Optional[str] = None, clear_previous: bool = True,
+             flatten: bool = True) -> MarkResult:
+    """PDF ファイルを読み込み、マーキングして別ファイルに保存する。
+
+    flatten=True (既定) の場合、マーキングをページに焼き込み、ポップアップが出ないようにする。
+    flatten=False の場合は PDF の注釈として残す (Acrobat 等で個別に削除できるが、
+    クリックするとコメントのポップアップが表示される)。
+    """
     input_path, output_path = Path(input_path), Path(output_path)
     if input_path.resolve() == output_path.resolve():
         raise ValueError("入力ファイルと出力ファイルが同じです。別のパスを指定してください")
     with pymupdf.open(input_path) as doc:
         if doc.needs_pass:
             raise ValueError(f"パスワード付き PDF は未対応です: {input_path}")
+        already = doc.xref_get_key(doc.pdf_catalog(), _FLATTENED_KEY)[1] == "true"
         result = mark_document(doc, config, pages=pages, clear_previous=clear_previous)
+        result.already_flattened = already
+        if flatten:
+            flatten_marks(doc)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         doc.save(output_path, garbage=3, deflate=True)
     return result

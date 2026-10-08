@@ -23,7 +23,8 @@ def sample_pdf(tmp_path_factory):
 
 def _run(sample_pdf, tmp_path, cfg_dict):
     out = tmp_path / "out.pdf"
-    result = mark_pdf(sample_pdf, out, load_config(cfg_dict))
+    # 注釈の位置を検証するため、焼き込みせず注釈のまま出力する
+    result = mark_pdf(sample_pdf, out, load_config(cfg_dict), flatten=False)
     return result, out
 
 
@@ -110,11 +111,40 @@ def test_rerun_replaces_previous_marks(sample_pdf, tmp_path):
     cfg = {"word_rules": [{"words": ["要確認"], "color": "yellow"}]}
     _, out1 = _run(sample_pdf, tmp_path, cfg)
     out2 = tmp_path / "out2.pdf"
-    mark_pdf(out1, out2, load_config(cfg))
+    mark_pdf(out1, out2, load_config(cfg), flatten=False)
     annots = _annots(out2)
     assert len(annots) == 2
     with pymupdf.open(out2) as doc:
         assert all(a.info["title"] == ANNOT_TITLE for a in doc[0].annots())
+
+
+def test_flatten_default_removes_popups_and_keeps_user_annots(sample_pdf, tmp_path):
+    src = tmp_path / "with_note.pdf"
+    with pymupdf.open(sample_pdf) as doc:
+        note = doc[0].add_text_annot((40, 40), "user note")
+        note.set_info(title="someone")
+        note.update()
+        doc.save(src)
+    cfg = load_config({"word_rules": [{"words": ["要確認"], "color": "yellow"}],
+                       "row_rules": [{"keywords": "不合格", "color": "red"}]})
+    out = tmp_path / "flat.pdf"
+    result = mark_pdf(src, out, cfg)
+    assert len(result.hits) == 4 and not result.already_flattened
+    with pymupdf.open(out) as doc:
+        # 自分のマーキングは注釈として残らない (= ポップアップが出ない)。元の注釈は残る
+        assert [a.info["title"] for a in doc[0].annots()] == ["someone"]
+        # 焼き込んだ色がページに描画されている (「要確認」の位置が黄色系)
+        hit = next(h for h in result.hits if h.kind == "word")
+        assert hit.text == "要確認"
+        words = doc[0].search_for("要確認")
+        pix = doc[0].get_pixmap(clip=words[1], dpi=72)  # 2 件目は赤い行の外
+        yellow = [(x, y) for x in range(pix.width) for y in range(pix.height)
+                  if (lambda r, g, b: r > 200 and g > 200 and b < 200)(*pix.pixel(x, y))]
+        assert len(yellow) > pix.width * pix.height * 0.3
+
+    # 焼き込み済みの PDF に再実行すると検出できる
+    result = mark_pdf(out, tmp_path / "again.pdf", cfg)
+    assert result.already_flattened
 
 
 def test_rotated_page(sample_pdf, tmp_path):

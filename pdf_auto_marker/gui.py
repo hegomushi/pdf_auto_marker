@@ -539,6 +539,10 @@ class App(ttk.Frame):
         self.open_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(frame, text="完了後に出力フォルダを開く",
                         variable=self.open_var).grid(row=1, column=3, columnspan=2, sticky="w", pady=(6, 0))
+        self.annot_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(frame, text="注釈として付ける (Acrobat 等で個別に削除できますが、"
+                                    "クリックするとポップアップが表示されます)",
+                        variable=self.annot_var).grid(row=2, column=0, columnspan=5, sticky="w", pady=(4, 0))
 
     def _build_actions(self):
         frame = ttk.Frame(self)
@@ -704,6 +708,7 @@ class App(ttk.Frame):
             return
         pages = self.pages_var.get().strip() or None
         keep = self.keep_var.get()
+        flatten = not self.annot_var.get()
         jobs = self.build_jobs()
         self.progress.configure(maximum=len(jobs), value=0)
         self.log(f"--- マーキング開始 ({len(jobs)} ファイル) ---")
@@ -712,7 +717,8 @@ class App(ttk.Frame):
             total, failed = 0, 0
             for n, (src, dst) in enumerate(jobs, 1):
                 try:
-                    result = mark_pdf(src, dst, config, pages=pages, clear_previous=not keep)
+                    result = mark_pdf(src, dst, config, pages=pages, clear_previous=not keep,
+                                      flatten=flatten)
                 except Exception as e:  # 1 ファイルの失敗で全体を止めない
                     failed += 1
                     self.msg_queue.put(("log", f"✕ {src.name}: {e}"))
@@ -723,6 +729,9 @@ class App(ttk.Frame):
                     if result.tables_found == 0:
                         self.msg_queue.put(("log", "    注意: 表が検出されませんでした。"
                                                    "罫線のない表は「文字の並びから検出」を試してください"))
+                    if result.already_flattened:
+                        self.msg_queue.put(("log", "    注意: 既にマーキング済みの PDF のため、マーキングが重なっています。"
+                                                   "元の PDF から実行し直してください"))
                 self.msg_queue.put(("progress", n))
             self.last_output_dir = jobs[-1][1].parent
             return total, failed, len(jobs)

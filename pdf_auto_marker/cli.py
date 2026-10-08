@@ -46,7 +46,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--strategy", choices=["lines", "lines_strict", "text"],
                    help="表の検出方法 (--inspect 時、または設定ファイルの指定を上書き)")
     p.add_argument("--keep-previous", action="store_true",
-                   help="以前このツールで付けたマーキングを削除せずに残す")
+                   help="以前このツールで付けたマーキングを削除せずに残す (--as-annotations で出力したものが対象)")
+    p.add_argument("--as-annotations", action="store_true",
+                   help="マーキングを PDF の注釈として付ける (Acrobat 等で個別に削除できるが、"
+                        "クリックするとポップアップが表示される)。既定はページに焼き込み、ポップアップは出ない")
     p.add_argument("-v", "--verbose", action="store_true", help="マーキング箇所を 1 件ずつ表示する")
     return p
 
@@ -82,7 +85,8 @@ def main(argv: list[str] | None = None) -> int:
         for src in inputs:
             dst = _output_for(src, args.output, multiple)
             result = mark_pdf(src, dst, config, pages=args.pages,
-                              clear_previous=not args.keep_previous)
+                              clear_previous=not args.keep_previous,
+                              flatten=not args.as_annotations)
             print(f"{src} -> {dst}")
             print(f"  処理ページ: {result.pages_processed}, 検出した表: {result.tables_found}, "
                   f"マーキング: {len(result.hits)} 件")
@@ -95,6 +99,9 @@ def main(argv: list[str] | None = None) -> int:
                           f"{h.text!r} ({h.rule})")
             if result.tables_found == 0:
                 print("  注意: 表が検出されませんでした。罫線のない表は --strategy text を試してください")
+            if result.already_flattened:
+                print("  注意: 入力 PDF は既にマーキング済み (焼き込み済み) のため、マーキングが重なっています。"
+                      "元の PDF から実行し直してください")
         return 0
     except (ConfigError, FileNotFoundError, ValueError) as e:
         print(f"エラー: {e}", file=sys.stderr)
