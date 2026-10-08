@@ -40,9 +40,13 @@ jobs:
         shell: pwsh
         run: |
           $app = "dist\PdfAutoMarker"
+          # 既定: ページに焼き込み (注釈 = ポップアップは 0 件、ページの見た目は変化している)
           & "$app\pdf-auto-marker.exe" "$app\sample\sample.pdf" -c "$app\rules.yaml" -o smoke.pdf
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          python -c "import pymupdf; n = len(list(pymupdf.open('smoke.pdf')[0].annots())); print('annotations:', n); assert n == 7"
+          # 注釈形式: 7 件の注釈
+          & "$app\pdf-auto-marker.exe" "$app\sample\sample.pdf" -c "$app\rules.yaml" -o smoke_annot.pdf --as-annotations
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python packaging/smoke_check.py "$app\sample\sample.pdf" smoke.pdf smoke_annot.pdf
 
       - name: Smoke test (GUI exe starts)
         shell: pwsh
